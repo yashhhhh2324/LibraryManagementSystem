@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 10px;
+        }
+        header h1 {
+            margin: 0;
+        }
+        header button {
+            background-color: white;
+            color: #007BFF;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        header button:hover {
+            background-color: #e0e0e0;
+        }
+        main {
+            margin-top: 20px;
+        }
+        h2 {
+            color: #007BFF;
+        }
+        form, .actions, .cart {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, button, select {
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100%;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .book {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .actions {
+            display: flex;
+            justify-content: space-between;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Book Management</h1>
+    <button id="toggleRole">Switch to Student</button>
+</header>
+
+<main>
+    <div id="adminActions" class="hidden">
+        <h2>Admin Actions</h2>
+        <h3>Add a Book</h3>
+        <form id="addBookForm">
+            <label for="title">Title:</label>
+            <input type="text" id="title" name="title" required>
+            <label for="author">Author:</label>
+            <input type="text" id="author" name="author" required>
+            <button type="submit">Add Book</button>
+        </form>
+        <button id="fetchBooksAdmin">Fetch All Books</button>
+    </div>
+
+    <div id="studentActions" class="hidden">
+        <h2>Student Actions</h2>
+        <button id="fetchBooksStudent">View Available Books</button>
+        <button id="viewCart">View Cart</button>
+        <button id="borrowBooks" class="hidden">Borrow Books</button>
+    </div>
+
+    <h2>Book List</h2>
+    <div id="bookList"></div>
+
+    <div id="cart" class="cart hidden">
+        <h2>Cart</h2>
+        <div id="cartItems"></div>
+    </div>
+</main>
+
+<script>
+    const apiBaseUrl = "http://localhost:8081/api/books";
+    let currentRole = "admin";
+    let cart = [];
+
+    document.getElementById("toggleRole").addEventListener("click", function() {
+        currentRole = currentRole === "admin" ? "student" : "admin";
+        document.getElementById("adminActions").classList.toggle("hidden", currentRole !== "admin");
+        document.getElementById("studentActions").classList.toggle("hidden", currentRole !== "student");
+        this.textContent = `Switch to ${currentRole === "admin" ? "Student" : "Admin"}`;
+        document.getElementById("bookList").innerHTML = "";
+        document.getElementById("cart").classList.add("hidden");
+    });
+
+    document.getElementById("addBookForm").addEventListener("submit", async function(event) {
+        event.preventDefault();
+        const title = document.getElementById("title").value;
+        const author = document.getElementById("author").value;
+        const response = await fetch(apiBaseUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, author })
+        });
+        if (response.ok) {
+            alert("Book added successfully!");
+            document.getElementById("addBookForm").reset();
+            fetchBooks();
+        } else {
+            alert("Failed to add book.");
+        }
+    });
+
+    document.getElementById("fetchBooksAdmin").addEventListener("click", fetchBooks);
+    document.getElementById("fetchBooksStudent").addEventListener("click", fetchBooksForStudents);
+    document.getElementById("viewCart").addEventListener("click", displayCart);
+    document.getElementById("borrowBooks").addEventListener("click", borrowBooks);
+
+    async function fetchBooks() {
+        const response = await fetch(apiBaseUrl);
+        const books = await response.json();
+        displayBooks(books, false);
+    }
+
+    async function fetchBooksForStudents() {
+        const response = await fetch(apiBaseUrl);
+        const books = await response.json();
+        displayBooks(books, true);
+    }
+
+    function displayBooks(books, isStudent) {
+        const bookList = document.getElementById("bookList");
+        bookList.innerHTML = "";
+        books.forEach(book => {
+            const bookDiv = document.createElement("div");
+            bookDiv.className = "book";
+            bookDiv.innerHTML = `
+                <strong>${book.title}</strong> by ${book.author}
+                ${isStudent ? `<button onclick="addToCart(${book.id}, '${book.title}', '${book.author}')">Add to Cart</button>` : ""}
+            `;
+            bookList.appendChild(bookDiv);
+        });
+    }
+
+    function addToCart(id, title, author) {
+        if (!cart.some(book => book.id === id)) {
+            cart.push({ id, title, author });
+            alert("Book added to cart!");
+        } else {
+            alert("Book is already in the cart.");
+        }
+    }
+
+    function displayCart() {
+        const cartItems = document.getElementById("cartItems");
+        cartItems.innerHTML = "";
+        cart.forEach(book => {
+            const cartItem = document.createElement("div");
+            cartItem.className = "book";
+            cartItem.innerHTML = `<strong>${book.title}</strong> by ${book.author}`;
+            cartItems.appendChild(cartItem);
+        });
+        document.getElementById("cart").classList.remove("hidden");
+        document.getElementById("borrowBooks").classList.remove("hidden");
+    }
+
+    async function borrowBooks() {
+        const response = await fetch(`${apiBaseUrl}/borrow`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(cart)
+        });
+        if (response.ok) {
+            alert("Books borrowed successfully!");
+            cart = [];
+            displayCart();
+        } else {
+            alert("Failed to borrow books.");
+        }
+    }
+</script>
+</body>
+</html>
